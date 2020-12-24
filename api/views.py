@@ -12,6 +12,12 @@ from .serializers import (CommentSerializer, FollowSerializer, GroupSerializer,
 User = get_user_model()
 
 
+class CreateListViewset(mixins.CreateModelMixin,
+                        mixins.ListModelMixin,
+                        viewsets.GenericViewSet):
+    pass
+
+
 class PostViewSet(viewsets.ModelViewSet):
 
     serializer_class = PostSerializer
@@ -42,27 +48,20 @@ class CommentViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
 
-class GroupCreateListViewSet(mixins.CreateModelMixin,
-                             mixins.ListModelMixin,
-                             viewsets.GenericViewSet):
+class GroupCreateListViewSet(CreateListViewset):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
 
-class FollowCreateListViewSet(mixins.CreateModelMixin,
-                              mixins.ListModelMixin,
-                              viewsets.GenericViewSet):
-
+class FollowCreateListViewSet(CreateListViewset):
     serializer_class = FollowSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__username']
+    search_fields = ['user__username', 'following__username']
 
     def get_queryset(self):
-        username = self.request.query_params.get('user',
-                                                 self.request.user.username)
-        return Follow.objects.filter(following__username=username)
+        return self.request.user.following.all()
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
