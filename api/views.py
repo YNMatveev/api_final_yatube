@@ -1,10 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, viewsets
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 
-from .models import Follow, Group, Post
+from .models import Group, Post
 from .permissions import IsOwnerOrReadOnly
 from .serializers import (CommentSerializer, FollowSerializer, GroupSerializer,
                           PostSerializer)
@@ -19,16 +20,11 @@ class CreateListViewset(mixins.CreateModelMixin,
 
 
 class PostViewSet(viewsets.ModelViewSet):
-
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
-
-    def get_queryset(self):
-        queryset = Post.objects.all()
-        group = self.request.query_params.get('group', None)
-        if group is not None:
-            queryset = queryset.filter(group__id=group)
-        return queryset
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['group']
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -39,12 +35,15 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
 
-    def get_queryset(self):
+    def get_post(self):
         post_id = self.kwargs.get('post_id')
-        queryset = get_object_or_404(Post, id=post_id).comments.all()
-        return queryset
+        return get_object_or_404(Post, id=post_id)
+
+    def get_queryset(self):
+        return self.get_post().comments.all()
 
     def perform_create(self, serializer):
+        post = self.get_post()
         serializer.save(author=self.request.user)
 
 
